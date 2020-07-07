@@ -1,6 +1,6 @@
 <component name="ArtifactManager">
-  <artifact name="ctp4j-sim:jar">
-    <output-path>$PROJECT_DIR$/out/artifacts/ctp4j_sim_jar</output-path>
+  <artifact build-on-make="true" name="ctp4j-sim:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/</output-path>
     <root id="root">
       <element id="archive" name="ctp4j-sim.jar">
         <element id="module-output" name="ctp4j-sim" />
