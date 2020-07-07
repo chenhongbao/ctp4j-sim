@@ -44,25 +44,21 @@ public class TickBook {
 
     private final double priceTick;
     private final Random rand = new Random(TickBook.class.hashCode());
-    private final CThostFtdcDepthMarketDataField md, book;
+    private final CThostFtdcDepthMarketDataField md;
     private final DateTimeFormatter dayFormat = DateTimeFormatter.ofPattern("yyyyMMdd");
     private final DateTimeFormatter timeFormat = DateTimeFormatter.ofPattern("HH:mm:ss");
 
     // Buy chance.
     private double buyChance = 0.5;
 
-    public TickBook(CThostFtdcDepthMarketDataField origin, double priceTick,
-                    double buyChance) {
+    public TickBook(CThostFtdcDepthMarketDataField origin, double priceTick) {
         if (origin == null)
             throw new NullPointerException("original market data null");
         this.priceTick = priceTick;
-        this.buyChance = buyChance;
-        this.book = OP.deepCopy(origin);
         this.md = OP.deepCopy(origin);
-        Objects.requireNonNull(this.book, "book depth null");
         Objects.requireNonNull(this.md, "md depth null");
         this.md.HighestPrice = -Double.MAX_VALUE;
-        this.md.LowerLimitPrice = Double.MAX_VALUE;
+        this.md.LowestPrice = Double.MAX_VALUE;
     }
 
     public void setBuyChance(double chance) {

@@ -28,50 +28,104 @@
 
 package com.nabiki.ctp4j.md.internal;
 
-import com.google.gson.FieldNamingPolicy;
-import com.google.gson.GsonBuilder;
 import com.nabiki.ctp4j.jni.struct.CThostFtdcDepthMarketDataField;
 import org.junit.Test;
 
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.file.Path;
+import java.util.Random;
 
 public class TickBookTest {
-    @Test
-    public void basic() {
-        var origin = new CThostFtdcDepthMarketDataField();
+    private final static String dir = "C:\\Users\\chenh\\Desktop\\";
 
-        origin.InstrumentID = "x2009";
-        origin.AskVolume1 = 1352;
-        origin.AskPrice1 = 2100;
-        origin.BidVolume1 = 465;
-        origin.BidPrice1 = 2099;
-        origin.PreClosePrice = 2099;
-        origin.PreSettlementPrice = 2104;
-
-        var gson = new GsonBuilder()
-                .setPrettyPrinting()
-                .setFieldNamingPolicy(FieldNamingPolicy.IDENTITY).create();
-
-        var book = new TickBook(origin, 1.0D, 0.5D);
-        book.setBuyChance(0.6);
-        for (int i = 0; i < 1000; ++i)
-            write(book.refresh().LastPrice);
-
-        book.setBuyChance(0.2);
-        for (int i = 0; i < 500; ++i)
-            write(book.refresh().LastPrice);
-
-        book.setBuyChance(0.8);
-        for (int i = 0; i < 500; ++i)
-            write(book.refresh().LastPrice);
+    private final static CThostFtdcDepthMarketDataField originMd;
+    static {
+        originMd = new CThostFtdcDepthMarketDataField();
+        originMd.InstrumentID = "x2009";
+        originMd.AskVolume1 = 1352;
+        originMd.AskPrice1 = 2100;
+        originMd.BidVolume1 = 465;
+        originMd.BidPrice1 = 2099;
+        originMd.PreClosePrice = 2099;
+        originMd.PreSettlementPrice = 2104;
     }
 
-    private static void write(double price) {
+    @Test
+    public void basic() {
+        var book = new TickBook(originMd, 1.0D);
+        for (int i = 0; i < 1000 * 10; ++i)
+            write(book.refresh().LastPrice, "basic.txt");
+    }
+
+    private static final Random random = new Random(TickBook.class.hashCode());
+
+    private double stable_buy_chance() {
+        var origin = random.nextDouble();
+        return (origin - 0.5D) * random.nextDouble() + 0.5D;
+    }
+
+    @Test
+    public void stable_market() {
+        var book = new TickBook(originMd, 1.0D);
+
+        for (int j = 0; j < 10; ++j) {
+            book.setBuyChance(stable_buy_chance());
+            for (int i = 0; i < 1000; ++i)
+                write(book.refresh().LastPrice, "stable.txt");
+        }
+    }
+
+    private double shaking_buy_chance() {
+        var origin = random.nextDouble();
+        var transform = (0.5D - Math.abs(0.5D - origin)) * random.nextDouble();
+        if (origin > 0.5D)
+            return origin + transform;
+        else if (origin < 0.5D)
+            return origin - transform;
+        else
+            return origin;
+    }
+
+    @Test
+    public void shaking_market() {
+        var book = new TickBook(originMd, 1.0D);
+
+        for (int j = 0; j < 10; ++j) {
+            book.setBuyChance(shaking_buy_chance());
+            for (int i = 0; i < 1000; ++i)
+                write(book.refresh().LastPrice, "shaking.txt");
+        }
+    }
+
+    @Test
+    public void biased_market_up() {
+        var book = new TickBook(originMd, 1.0D);
+
+        for (int j = 0; j < 10; ++j) {
+            book.setBuyChance(0.55);
+            for (int i = 0; i < 1000; ++i)
+                write(book.refresh().LastPrice, "biased_up.txt");
+        }
+    }
+
+    @Test
+    public void biased_market_down() {
+        var book = new TickBook(originMd, 1.0D);
+
+        for (int j = 0; j < 10; ++j) {
+            book.setBuyChance(0.45);
+            for (int i = 0; i < 1000; ++i)
+                write(book.refresh().LastPrice, "biased_down.txt");
+        }
+    }
+
+    private static void write(double price, String file) {
         while (true)
             try (PrintWriter pw = new PrintWriter(
-                    new FileWriter("last_price.txt", true))) {
+                    new FileWriter(Path.of(dir, file).toFile(),
+                            true))) {
                 pw.println(price);
                 pw.flush();
                 break;
