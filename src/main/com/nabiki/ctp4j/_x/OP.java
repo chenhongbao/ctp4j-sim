@@ -34,6 +34,8 @@ import com.google.gson.GsonBuilder;
 
 import java.io.*;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -258,5 +260,15 @@ public class OP {
         if (LocalTime.now().getHour() > 20)
             n.plusDays(1);
         return n.format(dayPattern);
+    }
+
+    public static  void ensure(String flowDir, String... sub) {
+        Path p = Path.of(flowDir, sub);
+        try {
+            if (!Files.exists(p))
+                Files.createDirectories(p);
+        } catch (IOException e) {
+            throw new IllegalArgumentException("invalid flow directory");
+        }
     }
 }

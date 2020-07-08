@@ -28,13 +28,45 @@
 
 package com.nabiki.ctp4j.sim;
 
+import com.nabiki.ctp4j.jni.struct.CThostFtdcDepthMarketDataField;
 import com.nabiki.ctp4j.jni.struct.CThostFtdcInputOrderActionField;
 import com.nabiki.ctp4j.jni.struct.CThostFtdcInputOrderField;
+import com.nabiki.ctp4j.jni.struct.CThostFtdcRspUserLoginField;
+import com.nabiki.ctp4j.md.CThostFtdcMdSpi;
 import com.nabiki.ctp4j.trader.CThostFtdcTraderSpi;
 
-public class TradeBook {
-    public void setSPI(CThostFtdcTraderSpi spi) {
+import java.util.HashSet;
+import java.util.Set;
 
+public class TradeBook extends CThostFtdcMdSpi {
+    private final static TradeBook book = new TradeBook();
+    private final CThostFtdcRspUserLoginField loginProfile
+            = new CThostFtdcRspUserLoginField();
+    private final Set<CThostFtdcTraderSpi> spiSet = new HashSet<>();
+
+    TradeBook() {
+        TickSource.getTickSource().addSPI(this);
+        // Init login.
+        this.loginProfile.BrokerID = "9999";
+        this.loginProfile.SystemName = "Simulation";
+        this.loginProfile.FrontID = 1;
+        this.loginProfile.SessionID = 0;
+    }
+
+    public CThostFtdcRspUserLoginField getLoginProfile() {
+        return this.loginProfile;
+    }
+
+    public static TradeBook getTradeSource() {
+        return book;
+    }
+
+    public void addSPI(CThostFtdcTraderSpi spi) {
+        this.spiSet.add(spi);
+    }
+
+    public void removeSPI(CThostFtdcTraderSpi spi) {
+        this.spiSet.remove(spi);
     }
 
     public int enqueue(CThostFtdcInputOrderField order, int requestID) {
@@ -45,7 +77,8 @@ public class TradeBook {
         return 0;
     }
 
-    public void release() {
-
+    @Override
+    public void OnRtnDepthMarketData(
+            CThostFtdcDepthMarketDataField depthMarketData) {
     }
 }

@@ -28,9 +28,30 @@
 
 package com.nabiki.ctp4j.sim;
 
+import com.nabiki.ctp4j.jni.struct.CThostFtdcDepthMarketDataField;
+import com.nabiki.ctp4j.md.CThostFtdcMdSpi;
+
 import java.util.TimerTask;
 
 public class TickSource extends TimerTask {
+    private final static TickSource source = new TickSource();
+
+    public static TickSource getTickSource() {
+        return source;
+    }
+
+    void onSettlement(CThostFtdcDepthMarketDataField... settled) {
+
+    }
+
+    public void addSPI(CThostFtdcMdSpi spi) {
+
+    }
+
+    public void removeSPI(CThostFtdcMdSpi spi) {
+
+    }
+
     @Override
     public void run() {
 

@@ -40,47 +40,36 @@ import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
 class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
     // Default and silent implementation SPI.
-    class DefaultSPI extends CThostFtdcTraderSpi {
-    }
+    class DefaultSPI extends CThostFtdcTraderSpi {}
 
     private final static String apiVersion = "sim_1.0";
-    private final Path flowRoot, logDir, instrDir, settleDir;
+    private final Path logDir, instrDir;
     private final Logger log;
-    private final TradeBook book = new TradeBook();
     private final Map<String, CThostFtdcInstrumentField> instruments
-            = new HashMap<>();
+            = new ConcurrentHashMap<>();
     private final Map<String, CThostFtdcInstrumentMarginRateField> margins
-            = new HashMap<>();
+            = new ConcurrentHashMap<>();
     private final Map<String, CThostFtdcInstrumentCommissionRateField> commissions
-            = new HashMap<>();
-    private final Map<String, CThostFtdcDepthMarketDataField> settledDepths
-            = new HashMap<>();
-    private final CThostFtdcRspUserLoginField rspLogin
-            = new CThostFtdcRspUserLoginField();
+            = new ConcurrentHashMap<>();
 
     private CThostFtdcTraderSpi spi = new DefaultSPI();
 
     public CThostFtdcTraderApiImpl(String flowDir) {
-        ensure(flowDir);
-        ensure(flowDir, ".log");
-        ensure(flowDir, ".instrument");
-        ensure(flowDir, ".settle");
-        this.flowRoot = Path.of(flowDir);
+        OP.ensure(flowDir, ".log");
+        OP.ensure(flowDir, ".instrument");
         this.logDir = Path.of(flowDir, ".log");
         this.instrDir = Path.of(flowDir, ".instrument");
-        this.settleDir = Path.of(flowDir, ".settle");
         // Set logger.
         this.log = Logger.getLogger(this.getClass().getCanonicalName());
         try {
@@ -90,16 +79,6 @@ class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
             this.log.addHandler(h);
         } catch (IOException e) {
             throw new IllegalStateException("fail creating logger");
-        }
-    }
-
-    private void ensure(String flowDir, String... sub) {
-        Path p = Path.of(flowDir, sub);
-        try {
-            if (!Files.exists(p))
-                Files.createDirectories(p);
-        } catch (IOException e) {
-            throw new IllegalArgumentException("invalid flow directory");
         }
     }
 
@@ -135,11 +114,6 @@ class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
                                 OP.readText(file, StandardCharsets.UTF_8),
                                 CThostFtdcInstrumentMarginRateField.class);
                         margins.put(margin.InstrumentID, margin);
-                    } else if (file.getName().startsWith("depth.")) {
-                        var depth = OP.fromJson(
-                                OP.readText(file, StandardCharsets.UTF_8),
-                                CThostFtdcDepthMarketDataField.class);
-                        settledDepths.put(depth.InstrumentID, depth);
                     }
                 } catch (IOException e) {
                     log.warning(e.getMessage());
@@ -150,8 +124,7 @@ class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
         // Validate settings.
         this.instruments.keySet().removeIf(instrID -> {
             if (!this.commissions.containsKey(instrID)
-                    || !this.margins.containsKey(instrID)
-                    || !this.settledDepths.containsKey(instrID)) {
+                    || !this.margins.containsKey(instrID)) {
                 log.warning("invalid instrument " + instrID);
                 return true;
             }
@@ -171,18 +144,6 @@ class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
             }
             return false;
         });
-        this.settledDepths.keySet().removeIf(instrID -> {
-            if (!this.instruments.containsKey(instrID)) {
-                log.warning("invalid settled depth " + instrID);
-                return true;
-            }
-            return false;
-        });
-        // Init login rsp.
-        this.rspLogin.BrokerID = "9999";
-        this.rspLogin.SystemName = "Simulation";
-        this.rspLogin.FrontID = 1;
-        this.rspLogin.SessionID = 0;
     }
 
     private CThostFtdcRspInfoField rsp(int errorID, String errorMsg) {
@@ -194,7 +155,6 @@ class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
 
     @Override
     public void Join() {
-
     }
 
     @Override
@@ -214,13 +174,17 @@ class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
 
     @Override
     public void RegisterSpi(CThostFtdcTraderSpi spi) {
-        this.book.setSPI(spi);
+        // Remove SPI.
+        TradeBook.getTradeSource().removeSPI(this.spi);
+        // Add SPI.
+        TradeBook.getTradeSource().addSPI(spi);
         this.spi = spi;
     }
 
     @Override
     public void Release() {
-        this.book.release();
+        TradeBook.getTradeSource().removeSPI(this.spi);
+        this.spi = null;
     }
 
     @Override
@@ -240,7 +204,7 @@ class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
     @Override
     public int ReqUserLogin(CThostFtdcReqUserLoginField reqUserLoginField,
                             int requestID) {
-        var rsp = OP.deepCopy(this.rspLogin);
+        var rsp = OP.deepCopy(TradeBook.getTradeSource().getLoginProfile());
         rsp.CZCETime = rsp.DCETime
                 = rsp.FFEXTime
                 = rsp.INETime
@@ -276,13 +240,13 @@ class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
 
     @Override
     public int ReqOrderInsert(CThostFtdcInputOrderField inputOrder, int requestID) {
-        return this.book.enqueue(inputOrder, requestID);
+        return TradeBook.getTradeSource().enqueue(inputOrder, requestID);
     }
 
     @Override
     public int ReqOrderAction(CThostFtdcInputOrderActionField inputOrderAction,
                               int requestID) {
-        return this.book.enqueue(inputOrderAction, requestID);
+        return TradeBook.getTradeSource().enqueue(inputOrderAction, requestID);
     }
 
     @Override
