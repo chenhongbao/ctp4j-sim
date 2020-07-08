@@ -70,6 +70,8 @@ public class TradeBook extends CThostFtdcMdSpi {
             = new CThostFtdcRspUserLoginField();
     private final Map<String, OngoingOrder> orderRefs = new ConcurrentHashMap<>();
     private final Map<String, OngoingOrder> orderSys = new ConcurrentHashMap<>();
+    private final Map<String, CThostFtdcDepthMarketDataField> currentDepths
+            = new ConcurrentHashMap<>();
 
     TradeBook() {
         TickSource.getTickSource().addSPI(this);
@@ -91,6 +93,10 @@ public class TradeBook extends CThostFtdcMdSpi {
     public int enqueue(CThostFtdcInputOrderField order, int requestID,
                        CThostFtdcTraderSpi spi, CThostFtdcRspUserLoginField usr) {
         submitOrder(order, requestID, spi, usr);
+        // Check current market data. Trade if it could.
+        var depth = this.currentDepths.get(order.InstrumentID);
+        if (depth != null)
+            tryTrade(depth);
         return 0;
     }
 
@@ -250,6 +256,13 @@ public class TradeBook extends CThostFtdcMdSpi {
     @Override
     public void OnRtnDepthMarketData(
             CThostFtdcDepthMarketDataField depthMarketData) {
+        // Save latest depth market data.
+        this.currentDepths.put(depthMarketData.InstrumentID, depthMarketData);
+        // Check ongoing order and trade.
+        tryTrade(depthMarketData);
+    }
+
+    private void tryTrade(CThostFtdcDepthMarketDataField depthMarketData) {
         for (var ongoing : this.orderSys.values()) {
             if (ongoing.order.InstrumentID
                     .compareToIgnoreCase(depthMarketData.InstrumentID) != 0
