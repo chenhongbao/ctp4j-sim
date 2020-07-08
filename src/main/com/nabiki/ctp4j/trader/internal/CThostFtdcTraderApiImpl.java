@@ -51,7 +51,8 @@ import java.util.logging.SimpleFormatter;
 
 class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
     // Default and silent implementation SPI.
-    class DefaultSPI extends CThostFtdcTraderSpi {}
+    class DefaultSPI extends CThostFtdcTraderSpi {
+    }
 
     private final static String apiVersion = "sim_1.0";
     private final Path logDir, instrDir;
@@ -64,6 +65,7 @@ class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
             = new ConcurrentHashMap<>();
 
     private CThostFtdcTraderSpi spi = new DefaultSPI();
+    private CThostFtdcRspUserLoginField selfLogin;
 
     public CThostFtdcTraderApiImpl(String flowDir) {
         OP.ensure(flowDir, ".log");
@@ -174,16 +176,11 @@ class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
 
     @Override
     public void RegisterSpi(CThostFtdcTraderSpi spi) {
-        // Remove SPI.
-        TradeBook.getTradeSource().removeSPI(this.spi);
-        // Add SPI.
-        TradeBook.getTradeSource().addSPI(spi);
         this.spi = spi;
     }
 
     @Override
     public void Release() {
-        TradeBook.getTradeSource().removeSPI(this.spi);
         this.spi = null;
     }
 
@@ -195,36 +192,53 @@ class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
         rspAuth.UserID = reqAuthenticateField.UserID;
         rspAuth.AppID = reqAuthenticateField.AppID;
         rspAuth.UserProductInfo = reqAuthenticateField.UserProductInfo;
-        this.spi.OnRspAuthenticate(rspAuth,
-                rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),
-                requestID, true);
+        try {
+            this.spi.OnRspAuthenticate(rspAuth,
+                    rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),
+                    requestID, true);
+        } catch (Throwable th) {
+            this.log.severe(th.getMessage());
+            return (-1);
+        }
         return 0;
     }
 
     @Override
     public int ReqUserLogin(CThostFtdcReqUserLoginField reqUserLoginField,
                             int requestID) {
-        var rsp = OP.deepCopy(TradeBook.getTradeSource().getLoginProfile());
-        rsp.CZCETime = rsp.DCETime
-                = rsp.FFEXTime
-                = rsp.INETime
-                = rsp.SHFETime
-                = rsp.LoginTime
+        this.selfLogin = OP.deepCopy(TradeBook.getTradeSource().getLoginProfile());
+        if (this.selfLogin == null)
+            throw new IllegalStateException("login rsp null");
+        this.selfLogin.CZCETime = this.selfLogin.DCETime
+                = this.selfLogin.FFEXTime
+                = this.selfLogin.INETime
+                = this.selfLogin.SHFETime
+                = this.selfLogin.LoginTime
                 = OP.getTime(LocalTime.now(), null);
-        rsp.SessionID += 1;
-        rsp.UserID = reqUserLoginField.UserID;
-        rsp.TradingDay = OP.getTradingDay(LocalDate.now());
-        this.spi.OnRspUserLogin(rsp,
-                rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),
-                requestID, true);
+        this.selfLogin.SessionID += 1;
+        this.selfLogin.UserID = reqUserLoginField.UserID;
+        this.selfLogin.TradingDay = OP.getTradingDay(LocalDate.now());
+        try {
+            this.spi.OnRspUserLogin(this.selfLogin,
+                    rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),
+                    requestID, true);
+        } catch (Throwable th) {
+            this.log.severe(th.getMessage());
+            return (-1);
+        }
         return 0;
     }
 
     @Override
     public int ReqUserLogout(CThostFtdcUserLogoutField userLogout, int requestID) {
-        this.spi.OnRspUserLogout(userLogout,
-                rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),
-                requestID, true);
+        try {
+            this.spi.OnRspUserLogout(userLogout,
+                    rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),
+                    requestID, true);
+        } catch (Throwable th) {
+            this.log.severe(th.getMessage());
+            return (-1);
+        }
         return 0;
     }
 
@@ -232,36 +246,58 @@ class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
     public int ReqSettlementInfoConfirm(
             CThostFtdcSettlementInfoConfirmField settlementInfoConfirm,
             int requestID) {
-        this.spi.OnRspSettlementInfoConfirm(settlementInfoConfirm,
-                rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),
-                requestID, true);
+        try {
+            this.spi.OnRspSettlementInfoConfirm(settlementInfoConfirm,
+                    rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),
+                    requestID, true);
+        } catch (Throwable th) {
+            this.log.severe(th.getMessage());
+            return (-1);
+        }
         return 0;
     }
 
     @Override
     public int ReqOrderInsert(CThostFtdcInputOrderField inputOrder, int requestID) {
-        return TradeBook.getTradeSource().enqueue(inputOrder, requestID);
+        try {
+            return TradeBook.getTradeSource().enqueue(inputOrder, requestID,
+                    this.spi, this.selfLogin);
+        } catch (Throwable th) {
+            this.log.severe(th.getMessage());
+            return (-1);
+        }
     }
 
     @Override
     public int ReqOrderAction(CThostFtdcInputOrderActionField inputOrderAction,
                               int requestID) {
-        return TradeBook.getTradeSource().enqueue(inputOrderAction, requestID);
+        try {
+            return TradeBook.getTradeSource().enqueue(inputOrderAction, requestID,
+                    this.spi);
+        } catch (Throwable th) {
+            this.log.severe(th.getMessage());
+            return (-1);
+        }
     }
 
     @Override
     public int ReqQryInstrument(CThostFtdcQryInstrumentField qryInstrument,
                                 int requestID) {
-        var instrument = this.instruments.get(qryInstrument.InstrumentID);
-        if (instrument != null)
-            this.spi.OnRspQryInstrument(instrument,
-                    rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),
-                    requestID, true);
-        else
-            this.spi.OnRspError(
-                    rsp(TThostFtdcErrorCode.INSTRUMENT_NOT_FOUND,
-                            TThostFtdcErrorMessage.INSTRUMENT_NOT_FOUND),
-                    requestID, true);
+        try {
+            var instrument = this.instruments.get(qryInstrument.InstrumentID);
+            if (instrument != null)
+                this.spi.OnRspQryInstrument(instrument,
+                        rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),
+                        requestID, true);
+            else
+                this.spi.OnRspError(
+                        rsp(TThostFtdcErrorCode.INSTRUMENT_NOT_FOUND,
+                                TThostFtdcErrorMessage.INSTRUMENT_NOT_FOUND),
+                        requestID, true);
+        } catch (Throwable th) {
+            this.log.severe(th.getMessage());
+            return (-1);
+        }
         return 0;
     }
 
@@ -269,17 +305,22 @@ class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
     public int ReqQryInstrumentCommissionRate(
             CThostFtdcQryInstrumentCommissionRateField qryInstrumentCommissionRate,
             int requestID) {
-        var commission = this.commissions.get(
-                qryInstrumentCommissionRate.InstrumentID);
-        if (commission != null)
-            this.spi.OnRspQryInstrumentCommissionRate(commission,
-                    rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),
-                    requestID, true);
-        else
-            this.spi.OnRspError(
-                    rsp(TThostFtdcErrorCode.INSTRUMENT_NOT_FOUND,
-                            TThostFtdcErrorMessage.INSTRUMENT_NOT_FOUND),
-                    requestID, true);
+        try {
+            var commission = this.commissions.get(
+                    qryInstrumentCommissionRate.InstrumentID);
+            if (commission != null)
+                this.spi.OnRspQryInstrumentCommissionRate(commission,
+                        rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),
+                        requestID, true);
+            else
+                this.spi.OnRspError(
+                        rsp(TThostFtdcErrorCode.INSTRUMENT_NOT_FOUND,
+                                TThostFtdcErrorMessage.INSTRUMENT_NOT_FOUND),
+                        requestID, true);
+        } catch (Throwable th) {
+            this.log.severe(th.getMessage());
+            return (-1);
+        }
         return 0;
     }
 
@@ -287,16 +328,21 @@ class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
     public int ReqQryInstrumentMarginRate(
             CThostFtdcQryInstrumentMarginRateField qryInstrumentMarginRate,
             int requestID) {
-        var margin = this.margins.get(qryInstrumentMarginRate.InstrumentID);
-        if (margin != null)
-            this.spi.OnRspQryInstrumentMarginRate(margin,
-                    rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),
-                    requestID, true);
-        else
-            this.spi.OnRspError(
-                    rsp(TThostFtdcErrorCode.INSTRUMENT_NOT_FOUND,
-                            TThostFtdcErrorMessage.INSTRUMENT_NOT_FOUND),
-                    requestID, true);
+        try {
+            var margin = this.margins.get(qryInstrumentMarginRate.InstrumentID);
+            if (margin != null)
+                this.spi.OnRspQryInstrumentMarginRate(margin,
+                        rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),
+                        requestID, true);
+            else
+                this.spi.OnRspError(
+                        rsp(TThostFtdcErrorCode.INSTRUMENT_NOT_FOUND,
+                                TThostFtdcErrorMessage.INSTRUMENT_NOT_FOUND),
+                        requestID, true);
+        } catch (Throwable th) {
+            this.log.severe(th.getMessage());
+            return (-1);
+        }
         return 0;
     }
 
