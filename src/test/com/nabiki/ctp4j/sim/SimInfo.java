@@ -26,14 +26,17 @@
  * SOFTWARE.
  */
 
-package com.nabiki.ctp4j._x;
+package com.nabiki.ctp4j.sim;
 
+import com.nabiki.ctp4j._x.OP;
 import com.nabiki.ctp4j.jni.flag.TThostFtdcCombHedgeFlagType;
 import com.nabiki.ctp4j.jni.flag.TThostFtdcProductClassType;
 import com.nabiki.ctp4j.jni.struct.CThostFtdcDepthMarketDataField;
 import com.nabiki.ctp4j.jni.struct.CThostFtdcInstrumentCommissionRateField;
 import com.nabiki.ctp4j.jni.struct.CThostFtdcInstrumentField;
 import com.nabiki.ctp4j.jni.struct.CThostFtdcInstrumentMarginRateField;
+
+import java.time.LocalDate;
 
 public class SimInfo {
     public static CThostFtdcInstrumentField[] instruments
@@ -66,8 +69,8 @@ public class SimInfo {
         in.MinLimitOrderVolume = 1;
         in.VolumeMultiple = 10;
         in.PriceTick = 1.0D;
-        in.CreateDate = OP.getToday(null);
-        in.OpenDate = OP.getToday(null);
+        in.CreateDate = OP.getDay(LocalDate.now(),null);
+        in.OpenDate = OP.getDay(LocalDate.now(), null);
         in.ExpireDate = "99991215";
         in.StartDelivDate = "99991216";
         in.EndDelivDate = "99991216";

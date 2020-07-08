@@ -192,14 +192,9 @@ public class OP {
         return 0.0D < price && price < Double.MAX_VALUE;
     }
 
-    /**
-     * Get today's string representation of the specified pattern. The pattern
-     * follows the convention of {@link DateTimeFormatter}.
-     *
-     * @param pattern pattern
-     * @return today's string representation
-     */
-    public static String getToday(String pattern) {
+    public static String getDay(LocalDate day, String pattern) {
+        if (day == null)
+            throw new NullPointerException("day null");
         if (pattern == null || pattern.trim().length() == 0)
             pattern = dayPatternStr;
         if (pattern.compareTo(dayPatternStr) == 0)
@@ -208,18 +203,13 @@ public class OP {
             return LocalDate.now().format(DateTimeFormatter.ofPattern(pattern));
     }
 
-    /**
-     * Get now' time representation of the specified pattern. The pattern
-     * follows the convention of {@link DateTimeFormatter}.
-     *
-     * @param pattern pattern
-     * @return today's string representation
-     */
-    public static String getTime(String pattern) {
+    public static String getTime(LocalTime time, String pattern) {
+        if (time == null)
+            throw new NullPointerException("time null");
         if (pattern == null || pattern.trim().length() == 0)
             pattern = timePatternStr;
         if (pattern.compareTo(timePatternStr) == 0)
-            return LocalTime.now().format(timePattern);
+            return time.format(timePattern);
         else
             return LocalTime.now().format(DateTimeFormatter.ofPattern(pattern));
     }
@@ -260,5 +250,13 @@ public class OP {
             return LocalTime.parse(time, timePattern);
         else
             return LocalTime.parse(time, DateTimeFormatter.ofPattern(pattern));
+    }
+
+
+    public static String getTradingDay(LocalDate day) {
+        var n = LocalDate.from(day);
+        if (LocalTime.now().getHour() > 20)
+            n.plusDays(1);
+        return n.format(dayPattern);
     }
 }

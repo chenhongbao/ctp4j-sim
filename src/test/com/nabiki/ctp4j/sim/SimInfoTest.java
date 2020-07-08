@@ -26,8 +26,9 @@
  * SOFTWARE.
  */
 
-package com.nabiki.ctp4j._x;
+package com.nabiki.ctp4j.sim;
 
+import com.nabiki.ctp4j._x.OP;
 import org.junit.Test;
 
 import java.io.File;

@@ -26,13 +26,26 @@
  * SOFTWARE.
  */
 
-package com.nabiki.ctp4j.md.internal;
+package com.nabiki.ctp4j.sim;
 
-import java.util.TimerTask;
+import com.nabiki.ctp4j.jni.struct.CThostFtdcInputOrderActionField;
+import com.nabiki.ctp4j.jni.struct.CThostFtdcInputOrderField;
+import com.nabiki.ctp4j.trader.CThostFtdcTraderSpi;
 
-public class TickSource extends TimerTask {
-    @Override
-    public void run() {
+public class TradeBook {
+    public void setSPI(CThostFtdcTraderSpi spi) {
+
+    }
+
+    public int enqueue(CThostFtdcInputOrderField order, int requestID) {
+        return 0;
+    }
+
+    public int enqueue(CThostFtdcInputOrderActionField action, int requestID) {
+        return 0;
+    }
+
+    public void release() {
 
     }
 }

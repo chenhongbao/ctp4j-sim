@@ -26,7 +26,7 @@
  * SOFTWARE.
  */
 
-package com.nabiki.ctp4j.md.internal;
+package com.nabiki.ctp4j.sim;
 
 import com.nabiki.ctp4j._x.OP;
 import com.nabiki.ctp4j.jni.struct.CThostFtdcDepthMarketDataField;
@@ -114,7 +114,7 @@ public class TickBook {
         this.md.BidVolume1 = Math.max(this.md.BidVolume1, 0);
 
         // Day and time.
-        this.md.TradingDay = getTradingDay();
+        this.md.TradingDay = OP.getTradingDay(LocalDate.now());
         this.md.ActionDay = LocalDate.now().format(this.dayFormat);
         this.md.UpdateTime = LocalTime.now().format(this.timeFormat);
         this.md.UpdateMillisec = (int)(System.currentTimeMillis() % 1000);
@@ -124,13 +124,6 @@ public class TickBook {
         this.md.LowestPrice = Math.min(this.md.LastPrice, this.md.LowestPrice);
 
         return OP.deepCopy(this.md);
-    }
-
-    private String getTradingDay() {
-        var n = LocalDate.now();
-        if (LocalTime.now().getHour() > 20)
-            n.plusDays(1);
-        return n.format(this.dayFormat);
     }
 
     private int nextRandomVolume(int bbound) {

@@ -28,25 +28,168 @@
 
 package com.nabiki.ctp4j.trader.internal;
 
+import com.nabiki.ctp4j._x.OP;
+import com.nabiki.ctp4j.jni.flag.TThostFtdcErrorCode;
+import com.nabiki.ctp4j.jni.flag.TThostFtdcErrorMessage;
 import com.nabiki.ctp4j.jni.struct.*;
+import com.nabiki.ctp4j.sim.TradeBook;
 import com.nabiki.ctp4j.trader.CThostFtdcTraderApi;
 import com.nabiki.ctp4j.trader.CThostFtdcTraderSpi;
 
+import java.io.File;
+import java.io.FileFilter;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.logging.FileHandler;
+import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
+
 class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
+    // Default and silent implementation SPI.
+    class DefaultSPI extends CThostFtdcTraderSpi {
+    }
+
+    private final static String apiVersion = "sim_1.0";
+    private final Path flowRoot, logDir, instrDir, settleDir;
+    private final Logger log;
+    private final TradeBook book = new TradeBook();
+    private final Map<String, CThostFtdcInstrumentField> instruments
+            = new HashMap<>();
+    private final Map<String, CThostFtdcInstrumentMarginRateField> margins
+            = new HashMap<>();
+    private final Map<String, CThostFtdcInstrumentCommissionRateField> commissions
+            = new HashMap<>();
+    private final Map<String, CThostFtdcDepthMarketDataField> settledDepths
+            = new HashMap<>();
+    private final CThostFtdcRspUserLoginField rspLogin
+            = new CThostFtdcRspUserLoginField();
+
+    private CThostFtdcTraderSpi spi = new DefaultSPI();
+
+    public CThostFtdcTraderApiImpl(String flowDir) {
+        ensure(flowDir);
+        ensure(flowDir, ".log");
+        ensure(flowDir, ".instrument");
+        ensure(flowDir, ".settle");
+        this.flowRoot = Path.of(flowDir);
+        this.logDir = Path.of(flowDir, ".log");
+        this.instrDir = Path.of(flowDir, ".instrument");
+        this.settleDir = Path.of(flowDir, ".settle");
+        // Set logger.
+        this.log = Logger.getLogger(this.getClass().getCanonicalName());
+        try {
+            var h = new FileHandler(Path.of(
+                    this.logDir.toString(), "trader.log").toString());
+            h.setFormatter(new SimpleFormatter());
+            this.log.addHandler(h);
+        } catch (IOException e) {
+            throw new IllegalStateException("fail creating logger");
+        }
+    }
+
+    private void ensure(String flowDir, String... sub) {
+        Path p = Path.of(flowDir, sub);
+        try {
+            if (!Files.exists(p))
+                Files.createDirectories(p);
+        } catch (IOException e) {
+            throw new IllegalArgumentException("invalid flow directory");
+        }
+    }
 
     @Override
     public String GetApiVersion() {
-        return null;
+        return apiVersion;
     }
 
     @Override
     public String GetTradingDay() {
-        return null;
+        return OP.getTradingDay(LocalDate.now());
     }
 
     @Override
     public void Init() {
+        // Load settings.
+        this.instrDir.toFile().listFiles(new FileFilter() {
+            @Override
+            public boolean accept(File file) {
+                try {
+                    if (file.getName().startsWith("instrument.")) {
+                        var in = OP.fromJson(
+                                OP.readText(file, StandardCharsets.UTF_8),
+                                CThostFtdcInstrumentField.class);
+                        instruments.put(in.InstrumentID, in);
+                    } else if (file.getName().startsWith("commission.")) {
+                        var comm = OP.fromJson(
+                                OP.readText(file, StandardCharsets.UTF_8),
+                                CThostFtdcInstrumentCommissionRateField.class);
+                        commissions.put(comm.InstrumentID, comm);
+                    } else if (file.getName().startsWith("margin.")) {
+                        var margin = OP.fromJson(
+                                OP.readText(file, StandardCharsets.UTF_8),
+                                CThostFtdcInstrumentMarginRateField.class);
+                        margins.put(margin.InstrumentID, margin);
+                    } else if (file.getName().startsWith("depth.")) {
+                        var depth = OP.fromJson(
+                                OP.readText(file, StandardCharsets.UTF_8),
+                                CThostFtdcDepthMarketDataField.class);
+                        settledDepths.put(depth.InstrumentID, depth);
+                    }
+                } catch (IOException e) {
+                    log.warning(e.getMessage());
+                }
+                return false;
+            }
+        });
+        // Validate settings.
+        this.instruments.keySet().removeIf(instrID -> {
+            if (!this.commissions.containsKey(instrID)
+                    || !this.margins.containsKey(instrID)
+                    || !this.settledDepths.containsKey(instrID)) {
+                log.warning("invalid instrument " + instrID);
+                return true;
+            }
+            return false;
+        });
+        this.commissions.keySet().removeIf(instrID -> {
+            if (!this.instruments.containsKey(instrID)) {
+                log.warning("invalid commission " + instrID);
+                return true;
+            }
+            return false;
+        });
+        this.margins.keySet().removeIf(instrID -> {
+            if (!this.instruments.containsKey(instrID)) {
+                log.warning("invalid margin " + instrID);
+                return true;
+            }
+            return false;
+        });
+        this.settledDepths.keySet().removeIf(instrID -> {
+            if (!this.instruments.containsKey(instrID)) {
+                log.warning("invalid settled depth " + instrID);
+                return true;
+            }
+            return false;
+        });
+        // Init login rsp.
+        this.rspLogin.BrokerID = "9999";
+        this.rspLogin.SystemName = "Simulation";
+        this.rspLogin.FrontID = 1;
+        this.rspLogin.SessionID = 0;
+    }
 
+    private CThostFtdcRspInfoField rsp(int errorID, String errorMsg) {
+        var rsp = new CThostFtdcRspInfoField();
+        rsp.ErrorID = errorID;
+        rsp.ErrorMsg = errorMsg;
+        return rsp;
     }
 
     @Override
@@ -56,81 +199,153 @@ class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
 
     @Override
     public void SubscribePrivateTopic(int type) {
-
+        this.log.info("SubscribePrivateTopic(" + type + ")");
     }
 
     @Override
     public void SubscribePublicTopic(int type) {
-
+        this.log.info("SubscribePublicTopic(" + type + ")");
     }
 
     @Override
     public void RegisterFront(String frontAddress) {
-
+        this.log.info("RegisterFront(" + frontAddress + ")");
     }
 
     @Override
     public void RegisterSpi(CThostFtdcTraderSpi spi) {
-
+        this.book.setSPI(spi);
+        this.spi = spi;
     }
 
     @Override
     public void Release() {
-
+        this.book.release();
     }
 
     @Override
-    public int ReqAuthenticate(CThostFtdcReqAuthenticateField reqAuthenticateField, int requestID) {
+    public int ReqAuthenticate(CThostFtdcReqAuthenticateField reqAuthenticateField,
+                               int requestID) {
+        var rspAuth = new CThostFtdcRspAuthenticateField();
+        rspAuth.BrokerID = reqAuthenticateField.BrokerID;
+        rspAuth.UserID = reqAuthenticateField.UserID;
+        rspAuth.AppID = reqAuthenticateField.AppID;
+        rspAuth.UserProductInfo = reqAuthenticateField.UserProductInfo;
+        this.spi.OnRspAuthenticate(rspAuth,
+                rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),
+                requestID, true);
         return 0;
     }
 
     @Override
-    public int ReqUserLogin(CThostFtdcReqUserLoginField reqUserLoginField, int requestID) {
+    public int ReqUserLogin(CThostFtdcReqUserLoginField reqUserLoginField,
+                            int requestID) {
+        var rsp = OP.deepCopy(this.rspLogin);
+        rsp.CZCETime = rsp.DCETime
+                = rsp.FFEXTime
+                = rsp.INETime
+                = rsp.SHFETime
+                = rsp.LoginTime
+                = OP.getTime(LocalTime.now(), null);
+        rsp.SessionID += 1;
+        rsp.UserID = reqUserLoginField.UserID;
+        rsp.TradingDay = OP.getTradingDay(LocalDate.now());
+        this.spi.OnRspUserLogin(rsp,
+                rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),
+                requestID, true);
         return 0;
     }
 
     @Override
     public int ReqUserLogout(CThostFtdcUserLogoutField userLogout, int requestID) {
+        this.spi.OnRspUserLogout(userLogout,
+                rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),
+                requestID, true);
         return 0;
     }
 
     @Override
-    public int ReqSettlementInfoConfirm(CThostFtdcSettlementInfoConfirmField settlementInfoConfirm, int requestID) {
+    public int ReqSettlementInfoConfirm(
+            CThostFtdcSettlementInfoConfirmField settlementInfoConfirm,
+            int requestID) {
+        this.spi.OnRspSettlementInfoConfirm(settlementInfoConfirm,
+                rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),
+                requestID, true);
         return 0;
     }
 
     @Override
     public int ReqOrderInsert(CThostFtdcInputOrderField inputOrder, int requestID) {
+        return this.book.enqueue(inputOrder, requestID);
+    }
+
+    @Override
+    public int ReqOrderAction(CThostFtdcInputOrderActionField inputOrderAction,
+                              int requestID) {
+        return this.book.enqueue(inputOrderAction, requestID);
+    }
+
+    @Override
+    public int ReqQryInstrument(CThostFtdcQryInstrumentField qryInstrument,
+                                int requestID) {
+        var instrument = this.instruments.get(qryInstrument.InstrumentID);
+        if (instrument != null)
+            this.spi.OnRspQryInstrument(instrument,
+                    rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),
+                    requestID, true);
+        else
+            this.spi.OnRspError(
+                    rsp(TThostFtdcErrorCode.INSTRUMENT_NOT_FOUND,
+                            TThostFtdcErrorMessage.INSTRUMENT_NOT_FOUND),
+                    requestID, true);
         return 0;
     }
 
     @Override
-    public int ReqOrderAction(CThostFtdcInputOrderActionField inputOrderAction, int requestID) {
+    public int ReqQryInstrumentCommissionRate(
+            CThostFtdcQryInstrumentCommissionRateField qryInstrumentCommissionRate,
+            int requestID) {
+        var commission = this.commissions.get(
+                qryInstrumentCommissionRate.InstrumentID);
+        if (commission != null)
+            this.spi.OnRspQryInstrumentCommissionRate(commission,
+                    rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),
+                    requestID, true);
+        else
+            this.spi.OnRspError(
+                    rsp(TThostFtdcErrorCode.INSTRUMENT_NOT_FOUND,
+                            TThostFtdcErrorMessage.INSTRUMENT_NOT_FOUND),
+                    requestID, true);
         return 0;
     }
 
     @Override
-    public int ReqQryInstrument(CThostFtdcQryInstrumentField qryInstrument, int requestID) {
+    public int ReqQryInstrumentMarginRate(
+            CThostFtdcQryInstrumentMarginRateField qryInstrumentMarginRate,
+            int requestID) {
+        var margin = this.margins.get(qryInstrumentMarginRate.InstrumentID);
+        if (margin != null)
+            this.spi.OnRspQryInstrumentMarginRate(margin,
+                    rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),
+                    requestID, true);
+        else
+            this.spi.OnRspError(
+                    rsp(TThostFtdcErrorCode.INSTRUMENT_NOT_FOUND,
+                            TThostFtdcErrorMessage.INSTRUMENT_NOT_FOUND),
+                    requestID, true);
         return 0;
     }
 
     @Override
-    public int ReqQryInstrumentCommissionRate(CThostFtdcQryInstrumentCommissionRateField qryInstrumentCommissionRate, int requestID) {
-        return 0;
+    public int ReqQryTradingAccount(
+            CThostFtdcQryTradingAccountField qryTradingAccount, int requestID) {
+        throw new UnsupportedOperationException("no implementation");
     }
 
     @Override
-    public int ReqQryInstrumentMarginRate(CThostFtdcQryInstrumentMarginRateField qryInstrumentMarginRate, int requestID) {
-        return 0;
-    }
-
-    @Override
-    public int ReqQryTradingAccount(CThostFtdcQryTradingAccountField qryTradingAccount, int requestID) {
-        return 0;
-    }
-
-    @Override
-    public int ReqQryInvestorPositionDetail(CThostFtdcQryInvestorPositionDetailField qryInvestorPositionDetail, int requestID) {
-        return 0;
+    public int ReqQryInvestorPositionDetail(
+            CThostFtdcQryInvestorPositionDetailField qryInvestorPositionDetail,
+            int requestID) {
+        throw new UnsupportedOperationException("no implementation");
     }
 }

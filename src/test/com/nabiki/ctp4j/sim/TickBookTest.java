@@ -26,7 +26,7 @@
  * SOFTWARE.
  */
 
-package com.nabiki.ctp4j.md.internal;
+package com.nabiki.ctp4j.sim;
 
 import com.nabiki.ctp4j.jni.struct.CThostFtdcDepthMarketDataField;
 import org.junit.Test;
