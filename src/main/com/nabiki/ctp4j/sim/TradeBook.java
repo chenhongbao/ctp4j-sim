@@ -122,6 +122,8 @@ public class TradeBook extends CThostFtdcMdSpi {
 
     private CThostFtdcOrderField cancelOrder(OngoingOrder ongoing) {
         var rtn = OP.deepCopy(ongoing.lastRtn());
+        if (rtn == null)
+            throw new IllegalStateException("create rtn order null");
         // Update last rtn order.
         rtn.OrderStatus = TThostFtdcOrderStatusType.CANCELED;
         rtn.StatusMsg += "已撤单";
@@ -278,6 +280,8 @@ public class TradeBook extends CThostFtdcMdSpi {
 
     private CThostFtdcOrderField updateOrder(OngoingOrder ongoing, int volume) {
         var rtn = OP.deepCopy(ongoing.lastRtn());
+        if (rtn == null)
+            throw new IllegalStateException("create rtn order null");
         rtn.VolumeTraded += volume;
         rtn.VolumeTotal -= volume;
         if (rtn.VolumeTotal > 0) {

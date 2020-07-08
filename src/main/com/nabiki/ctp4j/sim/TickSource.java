@@ -40,7 +40,7 @@ public class TickSource extends TimerTask {
         return source;
     }
 
-    void onSettlement(CThostFtdcDepthMarketDataField... settled) {
+    public void initialize(CThostFtdcDepthMarketDataField depth) {
 
     }
 

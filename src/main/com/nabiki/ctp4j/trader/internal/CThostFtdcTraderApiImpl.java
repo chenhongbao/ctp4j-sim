@@ -32,6 +32,7 @@ import com.nabiki.ctp4j._x.OP;
 import com.nabiki.ctp4j.jni.flag.TThostFtdcErrorCode;
 import com.nabiki.ctp4j.jni.flag.TThostFtdcErrorMessage;
 import com.nabiki.ctp4j.jni.struct.*;
+import com.nabiki.ctp4j.sim.CommonData;
 import com.nabiki.ctp4j.sim.TradeBook;
 import com.nabiki.ctp4j.trader.CThostFtdcTraderApi;
 import com.nabiki.ctp4j.trader.CThostFtdcTraderSpi;
@@ -43,26 +44,18 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
 
 class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
     // Default and silent implementation SPI.
-    class DefaultSPI extends CThostFtdcTraderSpi {
+    static class DefaultSPI extends CThostFtdcTraderSpi {
     }
 
     private final static String apiVersion = "sim_1.0";
-    private final Path logDir, instrDir;
+    private final Path instrDir;
     private final Logger log;
-    private final Map<String, CThostFtdcInstrumentField> instruments
-            = new ConcurrentHashMap<>();
-    private final Map<String, CThostFtdcInstrumentMarginRateField> margins
-            = new ConcurrentHashMap<>();
-    private final Map<String, CThostFtdcInstrumentCommissionRateField> commissions
-            = new ConcurrentHashMap<>();
 
     private CThostFtdcTraderSpi spi = new DefaultSPI();
     private CThostFtdcRspUserLoginField selfLogin;
@@ -70,13 +63,12 @@ class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
     public CThostFtdcTraderApiImpl(String flowDir) {
         OP.ensure(flowDir, ".log");
         OP.ensure(flowDir, ".instrument");
-        this.logDir = Path.of(flowDir, ".log");
         this.instrDir = Path.of(flowDir, ".instrument");
         // Set logger.
         this.log = Logger.getLogger(this.getClass().getCanonicalName());
         try {
-            var h = new FileHandler(Path.of(
-                    this.logDir.toString(), "trader.log").toString());
+            var h = new FileHandler(
+                    Path.of(flowDir, ".log", "trader.log").toString());
             h.setFormatter(new SimpleFormatter());
             this.log.addHandler(h);
         } catch (IOException e) {
@@ -105,46 +97,23 @@ class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
                         var in = OP.fromJson(
                                 OP.readText(file, StandardCharsets.UTF_8),
                                 CThostFtdcInstrumentField.class);
-                        instruments.put(in.InstrumentID, in);
+                        CommonData.addInstrument(in.InstrumentID, in);
                     } else if (file.getName().startsWith("commission.")) {
                         var comm = OP.fromJson(
                                 OP.readText(file, StandardCharsets.UTF_8),
                                 CThostFtdcInstrumentCommissionRateField.class);
-                        commissions.put(comm.InstrumentID, comm);
+                        CommonData.addCommission(comm.InstrumentID, comm);
                     } else if (file.getName().startsWith("margin.")) {
                         var margin = OP.fromJson(
                                 OP.readText(file, StandardCharsets.UTF_8),
                                 CThostFtdcInstrumentMarginRateField.class);
-                        margins.put(margin.InstrumentID, margin);
+                        CommonData.addMargin(margin.InstrumentID, margin);
                     }
                 } catch (IOException e) {
                     log.warning(e.getMessage());
                 }
                 return false;
             }
-        });
-        // Validate settings.
-        this.instruments.keySet().removeIf(instrID -> {
-            if (!this.commissions.containsKey(instrID)
-                    || !this.margins.containsKey(instrID)) {
-                log.warning("invalid instrument " + instrID);
-                return true;
-            }
-            return false;
-        });
-        this.commissions.keySet().removeIf(instrID -> {
-            if (!this.instruments.containsKey(instrID)) {
-                log.warning("invalid commission " + instrID);
-                return true;
-            }
-            return false;
-        });
-        this.margins.keySet().removeIf(instrID -> {
-            if (!this.instruments.containsKey(instrID)) {
-                log.warning("invalid margin " + instrID);
-                return true;
-            }
-            return false;
         });
     }
 
@@ -284,7 +253,7 @@ class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
     public int ReqQryInstrument(CThostFtdcQryInstrumentField qryInstrument,
                                 int requestID) {
         try {
-            var instrument = this.instruments.get(qryInstrument.InstrumentID);
+            var instrument = CommonData.getInstrument(qryInstrument.InstrumentID);
             if (instrument != null)
                 this.spi.OnRspQryInstrument(instrument,
                         rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),
@@ -306,7 +275,7 @@ class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
             CThostFtdcQryInstrumentCommissionRateField qryInstrumentCommissionRate,
             int requestID) {
         try {
-            var commission = this.commissions.get(
+            var commission = CommonData.getCommission(
                     qryInstrumentCommissionRate.InstrumentID);
             if (commission != null)
                 this.spi.OnRspQryInstrumentCommissionRate(commission,
@@ -329,7 +298,7 @@ class CThostFtdcTraderApiImpl extends CThostFtdcTraderApi {
             CThostFtdcQryInstrumentMarginRateField qryInstrumentMarginRate,
             int requestID) {
         try {
-            var margin = this.margins.get(qryInstrumentMarginRate.InstrumentID);
+            var margin = CommonData.getMargin(qryInstrumentMarginRate.InstrumentID);
             if (margin != null)
                 this.spi.OnRspQryInstrumentMarginRate(margin,
                         rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),

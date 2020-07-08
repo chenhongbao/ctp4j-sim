@@ -34,6 +34,7 @@ import com.nabiki.ctp4j.jni.flag.TThostFtdcErrorMessage;
 import com.nabiki.ctp4j.jni.struct.*;
 import com.nabiki.ctp4j.md.CThostFtdcMdApi;
 import com.nabiki.ctp4j.md.CThostFtdcMdSpi;
+import com.nabiki.ctp4j.sim.CommonData;
 import com.nabiki.ctp4j.sim.TickSource;
 import com.nabiki.ctp4j.sim.TradeBook;
 
@@ -44,9 +45,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.logging.FileHandler;
 import java.util.logging.Logger;
@@ -67,8 +66,6 @@ public class CThostFtdcMdApiImpl extends CThostFtdcMdApi {
     private final static String apiVersion = "sim_1.0";
     private final Path logDir, settleDir;
     private final Logger log;
-    private final Map<String, CThostFtdcDepthMarketDataField> depths
-            = new ConcurrentHashMap<>();
     private final Set<String> subscribed = new ConcurrentSkipListSet<>();
 
     private CThostFtdcMdSpi spi = new DefaultSPI();
@@ -114,7 +111,9 @@ public class CThostFtdcMdApiImpl extends CThostFtdcMdApi {
                         var depth = OP.fromJson(
                                 OP.readText(file, StandardCharsets.UTF_8),
                                 CThostFtdcDepthMarketDataField.class);
-                        depths.put(depth.InstrumentID, depth);
+                        CommonData.addDepth(depth.InstrumentID, depth);
+                        // Initialize tick book.
+                        TickSource.getTickSource().initialize(depth);
                     }
                 } catch (IOException e) {
                     log.warning(e.getMessage());
@@ -180,7 +179,7 @@ public class CThostFtdcMdApiImpl extends CThostFtdcMdApi {
             boolean last = false;
             if (i == count - 1)
                 last = true;
-            if (this.depths.containsKey(instrumentID[i])) {
+            if (CommonData.getDepth(instrumentID[i]) != null) {
                 this.spi.OnRspSubMarketData(spec,
                         rsp(TThostFtdcErrorCode.NONE, TThostFtdcErrorMessage.NONE),
                         0, last);
