@@ -65,6 +65,8 @@ public class TickBook {
         this.buyChance = chance;
     }
 
+    public double getBuyChance() { return this.buyChance; }
+
     public CThostFtdcDepthMarketDataField refresh() {
         SpreadType direction;
         if (this.rand.nextDouble() < this.buyChance)

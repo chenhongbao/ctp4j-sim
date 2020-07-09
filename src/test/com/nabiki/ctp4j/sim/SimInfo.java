@@ -55,10 +55,10 @@ public class SimInfo {
 
     static {
         var in = new CThostFtdcInstrumentField();
-        in.InstrumentID = "X0001";
+        in.InstrumentID = "XA001";
         in.ExchangeID = "SZFE";
         in.InstrumentName = "仙人草";
-        in.ExchangeInstID = "X0001";
+        in.ExchangeInstID = "XA001";
         in.ProductID = "X";
         in.ProductClass = TThostFtdcProductClassType.Futures;
         in.DeliveryYear = 9099;
@@ -81,14 +81,14 @@ public class SimInfo {
         in.LongMarginRatio = 0.0D;
         in.ShortMarginRatio = 0.0D;
         in.MaxMarginSideAlgorithm = 0;
-        in.UnderlyingInstrID = "X0001";
+        in.UnderlyingInstrID = "XA001";
         in.StrikePrice = 0.0D;
         in.OptionsType = 0;
         in.UnderlyingMultiple = 10;
         in.CombinationType = 0;
 
         var comm = new CThostFtdcInstrumentCommissionRateField();
-        comm.InstrumentID =  "X0001";
+        comm.InstrumentID =  "XA001";
         comm.InvestorRange = 0;
         comm.BrokerID = "";
         comm.InvestorID = "";
@@ -98,12 +98,12 @@ public class SimInfo {
         comm.CloseRatioByVolume = 0.0D;
         comm.CloseTodayRatioByMoney = 0.0D;
         comm.CloseTodayRatioByVolume = 1.5D;
-        comm.ExchangeID = "X0001";
+        comm.ExchangeID = "XA001";
         comm.BizType = 0;
         comm.InvestUnitID = "";
 
         var margin = new CThostFtdcInstrumentMarginRateField();
-        margin.InstrumentID = "X0001";
+        margin.InstrumentID = "XA001";
         margin.InvestorRange = 0;
         margin.BrokerID = "";
         margin.InvestorID = "";
@@ -113,14 +113,14 @@ public class SimInfo {
         margin.ShortMarginRatioByMoney = 0.05D;
         margin.ShortMarginRatioByVolume = 0.0D;
         margin.IsRelative = 0;
-        margin.ExchangeID = "X0001";
+        margin.ExchangeID = "XA001";
         margin.InvestUnitID = "";
 
         var depth = new CThostFtdcDepthMarketDataField();
         depth.TradingDay = "";
-        depth.InstrumentID = "X0001";
-        depth.ExchangeID = "X0001";
-        depth.ExchangeInstID = "X0001";
+        depth.InstrumentID = "XA001";
+        depth.ExchangeID = "XA001";
+        depth.ExchangeInstID = "XA001";
         depth.LastPrice = 1340.0D;
         depth.PreSettlementPrice = 1330.0D;
         depth.PreClosePrice = depth.LastPrice;
@@ -146,43 +146,43 @@ public class SimInfo {
         depth.AveragePrice = 1340.0D;
         depth.ActionDay = "";
 
-        // [1]. X0001
+        // [1]. XA001
         instruments[0] = in;
         commissions[0] = comm;
         margins[0] = margin;
         depths[0] = depth;
 
         in = OP.deepCopy(instruments[0]);
-        in.InstrumentID = "X0002";
+        in.InstrumentID = "XB001";
         in.InstrumentName = "参天木";
-        in.ExchangeInstID = "X0002";
+        in.ExchangeInstID = "XB001";
         in.VolumeMultiple = 100;
         in.PriceTick = 0.5D;
-        in.UnderlyingInstrID = "X0002";
+        in.UnderlyingInstrID = "XB001";
         in.UnderlyingMultiple = 100;
 
         comm = OP.deepCopy(commissions[0]);
-        comm.InstrumentID =  "X0002";
+        comm.InstrumentID =  "XB001";
         comm.OpenRatioByMoney = 0.00005D;
         comm.OpenRatioByVolume = 0.0D;
         comm.CloseRatioByMoney = 0.0D;
         comm.CloseRatioByVolume = 0.0D;
         comm.CloseTodayRatioByMoney = 0.00005D;
         comm.CloseTodayRatioByVolume = 0.0D;
-        comm.ExchangeID = "X0002";
+        comm.ExchangeID = "XB001";
 
         margin = OP.deepCopy(margins[0]);
-        margin.InstrumentID = "X0002";
+        margin.InstrumentID = "XB001";
         margin.LongMarginRatioByMoney = 0.0D;
         margin.LongMarginRatioByVolume = 1000.0D;
         margin.ShortMarginRatioByMoney = 0.0D;
         margin.ShortMarginRatioByVolume = 1000.0D;
-        margin.ExchangeID = "X0002";
+        margin.ExchangeID = "XB001";
 
         depth = OP.deepCopy(depths[0]);
-        depth.InstrumentID = "X0002";
-        depth.ExchangeID = "X0002";
-        depth.ExchangeInstID = "X0002";
+        depth.InstrumentID = "XB001";
+        depth.ExchangeID = "XB001";
+        depth.ExchangeInstID = "XB001";
         depth.LastPrice = 2340.0D;
         depth.PreSettlementPrice = 2330.0D;
         depth.PreClosePrice = depth.LastPrice;
@@ -199,43 +199,43 @@ public class SimInfo {
         depth.AskVolume1 = 1000;
         depth.AveragePrice = 2340.0D;
 
-        // [2]. X0002
+        // [2]. XB001
         instruments[1] = in;
         commissions[1] = comm;
         margins[1] = margin;
         depths[1] = depth;
 
         in = OP.deepCopy(instruments[0]);
-        in.InstrumentID = "X0003";
+        in.InstrumentID = "XC001";
         in.InstrumentName = "长生花";
-        in.ExchangeInstID = "X0003";
+        in.ExchangeInstID = "XC001";
         in.VolumeMultiple = 10;
         in.PriceTick = 2.0D;
-        in.UnderlyingInstrID = "X0003";
+        in.UnderlyingInstrID = "XC001";
         in.UnderlyingMultiple = 10;
 
         comm = OP.deepCopy(commissions[0]);
-        comm.InstrumentID =  "X0003";
+        comm.InstrumentID =  "XC001";
         comm.OpenRatioByMoney = 0.00005D;
         comm.OpenRatioByVolume = 0.0D;
         comm.CloseRatioByMoney = 0.00005D;
         comm.CloseRatioByVolume = 0.0D;
         comm.CloseTodayRatioByMoney = 0.00005D;
         comm.CloseTodayRatioByVolume = 0.0D;
-        comm.ExchangeID = "X0003";
+        comm.ExchangeID = "XC001";
 
         margin = OP.deepCopy(margins[0]);
-        margin.InstrumentID = "X0003";
+        margin.InstrumentID = "XC001";
         margin.LongMarginRatioByMoney = 0.07D;
         margin.LongMarginRatioByVolume = 0.0D;
         margin.ShortMarginRatioByMoney = 0.07D;
         margin.ShortMarginRatioByVolume = 0.0D;
-        margin.ExchangeID = "X0003";
+        margin.ExchangeID = "XC001";
 
         depth = OP.deepCopy(depths[0]);
-        depth.InstrumentID = "X0003";
-        depth.ExchangeID = "X0003";
-        depth.ExchangeInstID = "X0003";
+        depth.InstrumentID = "XC001";
+        depth.ExchangeID = "XC001";
+        depth.ExchangeInstID = "XC001";
         depth.LastPrice = 3340.0D;
         depth.PreSettlementPrice = 3330.0D;
         depth.PreClosePrice = depth.LastPrice;
@@ -252,7 +252,7 @@ public class SimInfo {
         depth.AskVolume1 = 1000;
         depth.AveragePrice = 3340.0D;
 
-        // [3]. X0003
+        // [3]. XC001
         instruments[2] = in;
         commissions[2] = comm;
         margins[2] = margin;

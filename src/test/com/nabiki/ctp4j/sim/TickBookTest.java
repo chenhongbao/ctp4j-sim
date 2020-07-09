@@ -41,6 +41,7 @@ public class TickBookTest {
     private final static String dir = "C:\\Users\\chenh\\Desktop\\";
 
     private final static CThostFtdcDepthMarketDataField originMd;
+
     static {
         originMd = new CThostFtdcDepthMarketDataField();
         originMd.InstrumentID = "x2009";
@@ -55,7 +56,7 @@ public class TickBookTest {
     @Test
     public void basic() {
         var book = new TickBook(originMd, 1.0D);
-        for (int i = 0; i < 1000 * 10; ++i)
+        for (int i = 0; i < 1000 * 100; ++i)
             write(book.refresh().LastPrice, "basic.txt");
     }
 
@@ -102,23 +103,17 @@ public class TickBookTest {
     @Test
     public void biased_market_up() {
         var book = new TickBook(originMd, 1.0D);
-
-        for (int j = 0; j < 10; ++j) {
-            book.setBuyChance(0.55);
-            for (int i = 0; i < 1000; ++i)
-                write(book.refresh().LastPrice, "biased_up.txt");
-        }
+        book.setBuyChance(0.51);
+        for (int i = 0; i < 1000 * 100; ++i)
+            write(book.refresh().LastPrice, "biased_up.txt");
     }
 
     @Test
     public void biased_market_down() {
         var book = new TickBook(originMd, 1.0D);
-
-        for (int j = 0; j < 10; ++j) {
-            book.setBuyChance(0.45);
-            for (int i = 0; i < 1000; ++i)
-                write(book.refresh().LastPrice, "biased_down.txt");
-        }
+        book.setBuyChance(0.49);
+        for (int i = 0; i < 1000 * 100; ++i)
+            write(book.refresh().LastPrice, "biased_down.txt");
     }
 
     private static void write(double price, String file) {
@@ -131,5 +126,17 @@ public class TickBookTest {
                 break;
             } catch (IOException ignored) {
             }
+    }
+
+    @Test
+    public void testRandom() {
+        var random = new Random(System.nanoTime());
+        int count = 0;
+        while (true) {
+            ++count;
+            if (random.nextDouble() < 0.0001)
+                break;
+        }
+        System.out.println("count: " + count);
     }
 }
